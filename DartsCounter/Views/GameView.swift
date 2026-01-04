@@ -4,12 +4,14 @@ struct GameView: View {
     @EnvironmentObject var gameManager: GameManager
     @State private var showScoreInput: Bool = false
     @State private var customScore: String = ""
-    
+    @State private var keyboardBuffer: String = ""
+    @FocusState private var isGameFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
             GameHeader()
-            
+
             // Main content
             HStack(spacing: 0) {
                 // Player 1 Score Panel
@@ -19,13 +21,14 @@ struct GameView: View {
                         isActive: gameManager.currentPlayerIndex == 0
                     )
                 }
-                
+
                 // Center - Scoring Area
                 CenterScoringArea(
                     showScoreInput: $showScoreInput,
-                    customScore: $customScore
+                    customScore: $customScore,
+                    keyboardBuffer: $keyboardBuffer
                 )
-                
+
                 // Player 2 Score Panel
                 if gameManager.players.count > 1 {
                     PlayerScorePanel(
@@ -35,12 +38,94 @@ struct GameView: View {
                 }
             }
         }
+        .focusable()
+        .focused($isGameFocused)
+        .onAppear {
+            isGameFocused = true
+        }
+        .onKeyPress { keyPress in
+            handleKeyPress(keyPress)
+        }
         .overlay {
             // Bust message overlay
             if gameManager.showBustMessage {
                 BustOverlay()
             }
         }
+    }
+
+    // MARK: - Keyboard Handling
+    private func handleKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
+        // Only handle input for human players
+        guard let currentPlayer = gameManager.currentPlayer,
+              !currentPlayer.type.isBot else {
+            return .ignored
+        }
+
+        let char = keyPress.characters
+
+        // Handle backspace/delete (check character first, as key enum might not work)
+        if char == "\u{7F}" || char == "\u{08}" || keyPress.key == .delete || keyPress.key == .deleteForward {
+            if !keyboardBuffer.isEmpty {
+                keyboardBuffer.removeLast()
+            }
+            return .handled
+        }
+
+        // Handle number input
+        if let digit = Int(char), digit >= 0 && digit <= 9 {
+            keyboardBuffer.append(char)
+
+            // Check if we should auto-submit
+            if shouldAutoSubmit(buffer: keyboardBuffer) {
+                submitScore()
+            }
+            return .handled
+        }
+
+        // Handle enter/return to force submit
+        if char == "\r" || char == "\n" || keyPress.key == .return {
+            submitScore()
+            return .handled
+        }
+
+        // Handle escape to clear buffer
+        if char == "\u{1B}" || keyPress.key == .escape {
+            keyboardBuffer = ""
+            return .handled
+        }
+
+        return .ignored
+    }
+
+    private func shouldAutoSubmit(buffer: String) -> Bool {
+        guard let score = Int(buffer) else { return false }
+
+        // If score is already at max (180), submit immediately
+        if score >= 180 { return true }
+
+        // If buffer is 3 digits, submit
+        if buffer.count >= 3 { return true }
+
+        // Check if any valid score could start with this buffer
+        // Valid scores: 0-180
+        let nextPossibleMin = score * 10
+        let nextPossibleMax = score * 10 + 9
+
+        // If the minimum possible next value would exceed 180, submit now
+        if nextPossibleMin > 180 { return true }
+
+        return false
+    }
+
+    private func submitScore() {
+        guard let visitTotal = Int(keyboardBuffer), visitTotal >= 0 && visitTotal <= 180 else {
+            keyboardBuffer = ""
+            return
+        }
+
+        gameManager.addVisitTotal(visitTotal)
+        keyboardBuffer = ""
     }
 }
 
@@ -117,9 +202,10 @@ struct DartIndicator: View {
 
 // MARK: - Player Score Panel
 struct PlayerScorePanel: View {
+    @EnvironmentObject var gameManager: GameManager
     @ObservedObject var player: Player
     let isActive: Bool
-    
+
     var body: some View {
         VStack(spacing: 20) {
             // Player name and indicator
@@ -136,13 +222,32 @@ struct PlayerScorePanel: View {
             .padding(.vertical, 8)
             .background(isActive ? Color.orange : Color.white.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            
+
             // Score
             Text("\(player.score)")
                 .font(.system(size: 80, weight: .black, design: .rounded))
                 .foregroundColor(isActive ? .white : .gray)
                 .animation(.spring(response: 0.3), value: player.score)
-            
+
+            // Checkout suggestion
+            if let checkout = gameManager.getCheckoutSuggestion(for: player.score) {
+                VStack(spacing: 4) {
+                    Text("CHECKOUT")
+                        .font(.caption2.bold())
+                        .foregroundColor(.green.opacity(0.8))
+                    Text(checkout)
+                        .font(.caption.bold())
+                        .foregroundColor(.green)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.green.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .transition(.scale.combined(with: .opacity))
+            }
+
             // Stats
             VStack(spacing: 8) {
                 StatRow(label: "Average", value: String(format: "%.1f", player.average))
@@ -152,7 +257,7 @@ struct PlayerScorePanel: View {
             .padding()
             .background(Color.white.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 10))
-            
+
             Spacer()
             
             // Recent visits
@@ -203,17 +308,18 @@ struct CenterScoringArea: View {
     @EnvironmentObject var gameManager: GameManager
     @Binding var showScoreInput: Bool
     @Binding var customScore: String
+    @Binding var keyboardBuffer: String
     @State private var selectedTab: ScoreTab = .singles
-    
+
     enum ScoreTab: String, CaseIterable {
         case singles = "Singles"
         case doubles = "Doubles"
         case triples = "Triples"
     }
-    
+
     var body: some View {
         VStack(spacing: 20) {
-            // Current visit total
+            // Current visit total and keyboard buffer
             VStack(spacing: 5) {
                 Text("Visit Total")
                     .font(.caption)
@@ -221,7 +327,30 @@ struct CenterScoringArea: View {
                 Text("\(gameManager.currentVisit.reduce(0, +))")
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundColor(.orange)
+
+                // Keyboard input buffer display
+                if !keyboardBuffer.isEmpty {
+                    VStack(spacing: 2) {
+                        Text("Typing Visit Total")
+                            .font(.caption2)
+                            .foregroundColor(.blue.opacity(0.8))
+                        HStack(spacing: 4) {
+                            Image(systemName: "keyboard")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            Text(keyboardBuffer)
+                                .font(.title2.bold())
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .transition(.scale.combined(with: .opacity))
+                }
             }
+            .animation(.spring(response: 0.3), value: keyboardBuffer)
             
             // Score entry tabs
             Picker("Score Type", selection: $selectedTab) {
@@ -309,7 +438,7 @@ struct SinglesGrid: View {
     
     func scoreLabel(_ score: Int) -> String {
         if score == 25 { return "25" }
-        if score == 50 { return "BULL" }
+        if score == 50 { return "BULLSEYE!" }
         if score == 0 { return "MISS" }
         return "\(score)"
     }
@@ -335,8 +464,8 @@ struct DoublesGrid: View {
                     gameManager.addScore(base * 2)
                 }
             }
-            // Bull (D25)
-            ScoreButton(score: 50, label: "D25", color: .red) {
+            // Bullseye (D25)
+            ScoreButton(score: 50, label: "BULLSEYE!", color: .red) {
                 gameManager.addScore(50)
             }
         }
