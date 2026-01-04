@@ -20,7 +20,8 @@ class GameManager: ObservableObject {
     @Published var players: [Player] = []
     @Published var currentPlayerIndex: Int = 0
     @Published var currentVisit: [Int] = [] // Current 3-dart visit scores
-    
+    private var scoreAtVisitStart: Int = 0 // Store score at start of visit for bust recovery
+
     @Published var winner: Player?
     @Published var showBustMessage: Bool = false
     
@@ -115,6 +116,11 @@ class GameManager: ObservableObject {
     func addScore(_ score: Int) {
         guard let player = currentPlayer, !player.hasWon else { return }
 
+        // Store score at start of visit (first dart)
+        if currentVisit.isEmpty {
+            scoreAtVisitStart = player.score
+        }
+
         currentVisit.append(score)
         player.dartsThrown += 1
 
@@ -164,6 +170,9 @@ class GameManager: ObservableObject {
             currentVisit = []
         }
 
+        // Store score at start of visit
+        scoreAtVisitStart = player.score
+
         let newScore = player.score - visitTotal
 
         // Check for bust (score goes below 0 or to 1, or exactly 0 without double)
@@ -202,11 +211,10 @@ class GameManager: ObservableObject {
     
     func endVisit(busted: Bool) {
         guard let player = currentPlayer else { return }
-        
+
         if busted {
-            // Revert to score before this visit
-            let visitTotal = currentVisit.reduce(0, +)
-            player.score += visitTotal
+            // Revert to score at start of visit
+            player.score = scoreAtVisitStart
             player.visits.append([]) // Record a bust as empty visit
         } else {
             player.visits.append(currentVisit)
