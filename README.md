@@ -99,7 +99,6 @@ DartsCounter/
 
 ## Future Enhancements (ideas)
 
-- [ ] Cricket mode
 - [ ] Around the Clock mode
 - [ ] Sound effects
 - [ ] Game history/statistics persistence
