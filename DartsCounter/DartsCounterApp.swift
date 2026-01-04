@@ -8,9 +8,9 @@ struct DartsCounterApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(gameManager)
-                .frame(minWidth: 800, minHeight: 600)
+                .frame(minWidth: 1200, minHeight: 800)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 1000, height: 700)
+        .defaultSize(width: 1400, height: 900)
     }
 }
