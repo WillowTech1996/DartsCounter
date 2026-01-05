@@ -83,7 +83,7 @@ DartsCounter/
 
    **Buttons (Dart-by-Dart)**:
    - **Singles tab**: Numbers 1-20, 25, BULLSEYE! (50), Miss
-   - **Doubles tab**: D1-D20, BULLSEYE! (Double Bull)
+   - **Doubles tab**: D1-D20, BULLSEYE!
    - **Triples tab**: T1-T20
    - The game automatically advances after 3 darts
 
@@ -99,7 +99,6 @@ DartsCounter/
 
 ## Future Enhancements (ideas)
 
-- [ ] Cricket mode
 - [ ] Around the Clock mode
 - [ ] Sound effects
 - [ ] Game history/statistics persistence
