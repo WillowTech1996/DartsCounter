@@ -110,7 +110,6 @@ struct GameView: View {
         // Check if any valid score could start with this buffer
         // Valid scores: 0-180
         let nextPossibleMin = score * 10
-        let nextPossibleMax = score * 10 + 9
 
         // If the minimum possible next value would exceed 180, submit now
         if nextPossibleMin > 180 { return true }
@@ -319,39 +318,95 @@ struct CenterScoringArea: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Current visit total and keyboard buffer
-            VStack(spacing: 5) {
-                Text("Visit Total")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                Text("\(gameManager.currentVisit.reduce(0, +))")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundColor(.orange)
+            // Show dartboard when bot is playing, otherwise show visit total
+            Group {
+                if let currentPlayer = gameManager.currentPlayer, currentPlayer.type.isBot && !gameManager.currentDartHits.isEmpty {
+                    VStack(spacing: 15) {
+                        Text("\(currentPlayer.name) is throwing...")
+                            .font(.title2.bold())
+                            .foregroundColor(.orange)
 
-                // Keyboard input buffer display
-                if !keyboardBuffer.isEmpty {
-                    VStack(spacing: 2) {
-                        Text("Typing Visit Total")
-                            .font(.caption2)
-                            .foregroundColor(.blue.opacity(0.8))
-                        HStack(spacing: 4) {
-                            Image(systemName: "keyboard")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                            Text(keyboardBuffer)
-                                .font(.title2.bold())
-                                .foregroundColor(.blue)
+                        HStack(spacing: 30) {
+                            // Dartboard on the left
+                            DartboardView(dartHits: gameManager.currentDartHits, size: 220)
+                                .frame(width: 250, height: 250)
+
+                            // Dart scores on the right
+                            VStack(spacing: 15) {
+                                ForEach(Array(gameManager.currentDartHits.enumerated()), id: \.element.id) { index, hit in
+                                    HStack(spacing: 15) {
+                                        // Dart number circle
+                                        ZStack {
+                                            Circle()
+                                                .fill(dartColor(index + 1))
+                                                .frame(width: 40, height: 40)
+                                            Text("\(index + 1)")
+                                                .font(.title3.bold())
+                                                .foregroundColor(.white)
+                                        }
+
+                                        // Dart score and description
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(hit.displayString)
+                                                .font(.title.bold())
+                                                .foregroundColor(.white)
+                                            Text("\(hit.score) points")
+                                                .font(.caption)
+                                                .foregroundColor(.gray)
+                                        }
+
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 12)
+                                    .background(Color.white.opacity(0.08))
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .transition(.asymmetric(
+                                        insertion: .scale.combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
+                                }
+                            }
+                            .frame(width: 220)
                         }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color.blue.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .transition(.scale.combined(with: .opacity))
+                } else {
+                    // Current visit total and keyboard buffer
+                    VStack(spacing: 5) {
+                        Text("Visit Total")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        Text("\(gameManager.currentVisit.reduce(0, +))")
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .foregroundColor(.orange)
+
+                        // Keyboard input buffer display
+                        if !keyboardBuffer.isEmpty {
+                            VStack(spacing: 2) {
+                                Text("Typing Visit Total")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue.opacity(0.8))
+                                HStack(spacing: 4) {
+                                    Image(systemName: "keyboard")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                    Text(keyboardBuffer)
+                                        .font(.title2.bold())
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.2))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                    }
                 }
             }
             .animation(.spring(response: 0.3), value: keyboardBuffer)
-            
+
             // Score entry tabs
             Picker("Score Type", selection: $selectedTab) {
                 ForEach(ScoreTab.allCases, id: \.self) { tab in
@@ -415,6 +470,15 @@ struct CenterScoringArea: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
+    }
+
+    func dartColor(_ dartNumber: Int) -> Color {
+        switch dartNumber {
+        case 1: return .yellow
+        case 2: return .cyan
+        case 3: return .purple
+        default: return .orange
+        }
     }
 }
 

@@ -3,20 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		001 /* DartsCounterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101; };
-		002 /* GameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102; };
-		003 /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103; };
-		004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104; };
-		005 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105; };
-		006 /* ModeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 106; };
-		007 /* PlayerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107; };
-		008 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108; };
-		009 /* GameOverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 109; };
-		010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 110; };
+		001 /* DartsCounterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101 /* DartsCounterApp.swift */; };
+		002 /* GameModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102 /* GameModels.swift */; };
+		003 /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103 /* GameManager.swift */; };
+		004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104 /* ContentView.swift */; };
+		005 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105 /* MainMenuView.swift */; };
+		006 /* ModeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 106 /* ModeSelectionView.swift */; };
+		007 /* PlayerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107 /* PlayerSetupView.swift */; };
+		008 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108 /* GameView.swift */; };
+		009 /* GameOverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 109 /* GameOverView.swift */; };
+		010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 110 /* Assets.xcassets */; };
+		011 /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112 /* SoundManager.swift */; };
+		16E449D22F0B12F600810A7D /* DartboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E449D12F0B12F600810A7D /* DartboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,7 +34,13 @@
 		109 /* GameOverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameOverView.swift; sourceTree = "<group>"; };
 		110 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		111 /* DartsCounter.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DartsCounter.entitlements; sourceTree = "<group>"; };
+		112 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
+		16E449D12F0B12F600810A7D /* DartboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DartboardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		16237BEE2F0BB03800B80D7F /* Sounds */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Sounds; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		200 /* Frameworks */ = {
@@ -56,6 +64,7 @@
 		301 /* DartsCounter */ = {
 			isa = PBXGroup;
 			children = (
+				16237BEE2F0BB03800B80D7F /* Sounds */,
 				101 /* DartsCounterApp.swift */,
 				303 /* Models */,
 				304 /* Managers */,
@@ -86,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				103 /* GameManager.swift */,
+				112 /* SoundManager.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -93,6 +103,7 @@
 		305 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				16E449D12F0B12F600810A7D /* DartboardView.swift */,
 				104 /* ContentView.swift */,
 				105 /* MainMenuView.swift */,
 				106 /* ModeSelectionView.swift */,
@@ -108,7 +119,7 @@
 /* Begin PBXNativeTarget section */
 		400 /* DartsCounter */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 500;
+			buildConfigurationList = 500 /* Build configuration list for PBXNativeTarget "DartsCounter" */;
 			buildPhases = (
 				401 /* Sources */,
 				200 /* Frameworks */,
@@ -117,6 +128,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				16237BEE2F0BB03800B80D7F /* Sounds */,
 			);
 			name = DartsCounter;
 			productName = DartsCounter;
@@ -131,14 +145,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					400 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
 			};
-			buildConfigurationList = 601;
+			buildConfigurationList = 601 /* Build configuration list for PBXProject "DartsCounter" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -172,9 +186,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				16E449D22F0B12F600810A7D /* DartboardView.swift in Sources */,
 				001 /* DartsCounterApp.swift in Sources */,
 				002 /* GameModels.swift in Sources */,
 				003 /* GameManager.swift in Sources */,
+				011 /* SoundManager.swift in Sources */,
 				004 /* ContentView.swift in Sources */,
 				005 /* MainMenuView.swift in Sources */,
 				006 /* ModeSelectionView.swift in Sources */,
@@ -221,6 +237,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -245,6 +262,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -284,6 +302,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -301,6 +320,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -314,6 +334,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -339,6 +360,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

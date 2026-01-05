@@ -16,15 +16,19 @@ class GameManager: ObservableObject {
     @Published var gameMode: GameMode = .fiveOhOne
     @Published var isVsBot: Bool = false
     @Published var botLevel: Int = 6
-    
+
     @Published var players: [Player] = []
     @Published var currentPlayerIndex: Int = 0
     @Published var currentVisit: [Int] = [] // Current 3-dart visit scores
     private var scoreAtVisitStart: Int = 0 // Store score at start of visit for bust recovery
+    private var isBotAnimating: Bool = false // Track if bot is currently throwing darts
 
     @Published var winner: Player?
     @Published var showBustMessage: Bool = false
-    
+    @Published var currentDartHits: [DartHit] = [] // For dartboard visualization
+
+    private let soundManager = SoundManager.shared
+
     var currentPlayer: Player? {
         guard currentPlayerIndex < players.count else { return nil }
         return players[currentPlayerIndex]
@@ -119,18 +123,24 @@ class GameManager: ObservableObject {
         // Store score at start of visit (first dart)
         if currentVisit.isEmpty {
             scoreAtVisitStart = player.score
+
+            // Announce remaining score at START of turn if on a checkout (≤170)
+            if player.score <= 170 && player.score > 1 {
+                soundManager.announceRemainingScore(player.score)
+            }
         }
 
         currentVisit.append(score)
         player.dartsThrown += 1
 
-        let visitTotal = currentVisit.reduce(0, +)
-        let newScore = player.score - visitTotal
+        // Subtract just the individual dart score, not the cumulative total
+        let newScore = player.score - score
 
         // Check for bust (score goes below 0 or to 1, or exactly 0 without double)
         // For simplicity, we'll just check if score goes to 1 or below 0
         if newScore < 0 || newScore == 1 {
             // Bust! Revert the visit
+            soundManager.announceBust()
             showBustMessage = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 self?.showBustMessage = false
@@ -145,6 +155,7 @@ class GameManager: ObservableObject {
             player.hasWon = true
             player.visits.append(currentVisit)
             winner = player
+            soundManager.announceGameOver(winner: player.name)
             gameState = .gameOver
             return
         }
@@ -152,8 +163,13 @@ class GameManager: ObservableObject {
         // Update score temporarily for display
         player.score = newScore
 
-        // If 3 darts thrown, end the visit
+        // If 3 darts thrown, announce the visit total only
         if currentVisit.count >= 3 {
+            let visitTotal = currentVisit.reduce(0, +)
+
+            // Announce the visit total
+            soundManager.announceVisitTotal(visitTotal)
+
             endVisit(busted: false)
         }
     }
@@ -173,11 +189,17 @@ class GameManager: ObservableObject {
         // Store score at start of visit
         scoreAtVisitStart = player.score
 
+        // Announce remaining score at START of turn if on a checkout (≤170)
+        if player.score <= 170 && player.score > 1 {
+            soundManager.announceRemainingScore(player.score)
+        }
+
         let newScore = player.score - visitTotal
 
         // Check for bust (score goes below 0 or to 1, or exactly 0 without double)
         if newScore < 0 || newScore == 1 {
             // Bust! Revert the visit
+            soundManager.announceBust()
             showBustMessage = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 self?.showBustMessage = false
@@ -195,9 +217,13 @@ class GameManager: ObservableObject {
             currentVisit = [visitTotal] // Store as single entry for display
             player.visits.append(currentVisit)
             winner = player
+            soundManager.announceGameOver(winner: player.name)
             gameState = .gameOver
             return
         }
+
+        // Announce the visit total
+        soundManager.announceVisitTotal(visitTotal)
 
         // Update score and record the visit
         player.score = newScore
@@ -219,9 +245,14 @@ class GameManager: ObservableObject {
         } else {
             player.visits.append(currentVisit)
         }
-        
+
         currentVisit = []
-        nextPlayer()
+
+        // For bots during animation, don't immediately switch - let the dartboard animation complete
+        // The executeBotTurn() function will handle the delay and switch
+        if !isBotAnimating {
+            nextPlayer()
+        }
     }
     
     func undoLastDart() {
@@ -233,9 +264,12 @@ class GameManager: ObservableObject {
     }
     
     func nextPlayer() {
+        // Clear dart hits when switching players
+        currentDartHits = []
+
         currentPlayerIndex = (currentPlayerIndex + 1) % players.count
         currentVisit = []
-        
+
         // If next player is a bot, execute their turn
         if let player = currentPlayer, player.type.isBot {
             executeBotTurn()
@@ -246,20 +280,49 @@ class GameManager: ObservableObject {
     func executeBotTurn() {
         guard let player = currentPlayer,
               case .bot(let level) = player.type else { return }
-        
+
         let bot = BotDifficulty(level: level)
         let darts = bot.generateVisitScore(currentScore: player.score)
-        
-        // Animate the bot's darts being thrown
+        // Convert the same darts to dart hits for visualization (ensures sync)
+        let dartHits = darts.map { bot.scoreToDartHit($0) }
+
+        // Clear previous dart hits and mark bot as animating
+        currentDartHits = []
+        isBotAnimating = true
+
+        // Animate the bot's darts being thrown (1 second between each dart)
         for (index, dart) in darts.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.8) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 1.0) { [weak self] in
                 guard let self = self else { return }
-                
+
                 // Check if game is still active and it's still bot's turn
                 guard self.gameState == .playing,
-                      self.currentPlayer?.id == player.id else { return }
-                
+                      self.currentPlayer?.id == player.id else {
+                    self.isBotAnimating = false
+                    return
+                }
+
+                // Add dart hit to visualization
+                if index < dartHits.count {
+                    self.currentDartHits.append(dartHits[index])
+                }
+
                 self.addScore(dart)
+            }
+        }
+
+        // Keep dartboard visible for 1 second after last dart, then switch to next player
+        let totalDartTime = Double(darts.count) * 1.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDartTime + 1.0) { [weak self] in
+            guard let self = self else { return }
+
+            // Clear animation flag and switch players
+            self.isBotAnimating = false
+
+            // Only switch if still showing this turn's darts and not game over
+            if self.currentPlayer?.id == player.id && self.gameState == .playing {
+                self.currentDartHits = []
+                self.nextPlayer()
             }
         }
     }
@@ -282,87 +345,56 @@ class GameManager: ObservableObject {
         [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60]
     }
 
-    // MARK: - Checkout Suggestions
+    // MARK: - Checkout Suggestions (Based on Winmau Checkout Table)
     func getCheckoutSuggestion(for score: Int) -> String? {
         guard score > 0 && score <= 170 else { return nil }
 
         let checkouts: [Int: String] = [
-            2: "D1", 4: "D2", 6: "D3", 8: "D4", 10: "D5",
-            12: "D6", 14: "D7", 16: "D8", 18: "D9", 20: "D10",
-            22: "D11", 24: "D12", 26: "D13", 28: "D14", 30: "D15",
-            32: "D16", 34: "D17", 36: "D18", 38: "D19", 40: "D20",
+            // 2 DART FINISHES (41-81)
+            41: "9 + D16", 42: "10 + D16", 43: "11 + D16", 44: "12 + D16", 45: "13 + D16",
+            46: "6 + D20", 47: "7 + D20", 48: "16 + D16", 49: "17 + D16", 50: "18 + D16",
+            51: "19 + D16", 52: "20 + D16", 53: "13 + D20", 54: "14 + D20", 55: "15 + D20",
+            56: "16 + D20", 57: "17 + D20", 58: "18 + D20", 59: "19 + D20", 60: "20 + D20",
+            61: "T15 + D8", 62: "T10 + D16", 63: "T13 + D12", 64: "T16 + D8", 65: "T19 + D4",
+            66: "T14 + D12", 67: "T17 + D8", 68: "T20 + D4", 69: "T19 + D6", 70: "T18 + D8",
+            71: "T13 + D16", 72: "T16 + D12", 73: "T19 + D8", 74: "T14 + D16", 75: "T17 + D12",
+            76: "T20 + D8", 77: "T19 + D10", 78: "T18 + D12", 79: "T19 + D11", 80: "T20 + D10",
+            81: "T19 + D12",
 
-            // 41-50
-            41: "9 → D16", 42: "10 → D16", 43: "11 → D16", 44: "12 → D16",
-            45: "13 → D16", 46: "6 → D20", 47: "15 → D16", 48: "16 → D16",
-            49: "17 → D16", 50: "10 → D20 or BULLSEYE!",
+            // 3 DART FINISHES (82-121)
+            82: "Bull + D16", 83: "T17 + D16", 84: "T20 + D12", 85: "T15 + D20", 86: "T18 + D16",
+            87: "T17 + D18", 88: "T20 + D14", 89: "T19 + D16", 90: "T20 + D15", 91: "T17 + D20",
+            92: "T20 + D16", 93: "T19 + D18", 94: "T18 + D20", 95: "T19 + D19", 96: "T20 + D18",
+            97: "T19 + D20", 98: "T20 + D19", 99: "T19 + 10 + D16", 100: "T20 + D20",
+            101: "T19 + 10 + D16", 102: "T16 + 14 + D20", 103: "T19 + 6 + D20", 104: "T16 + 16 + D20",
+            105: "T20 + 13 + D16", 106: "T20 + 6 + D20", 107: "T19 + 10 + D20", 108: "T20 + 16 + D16",
+            109: "T20 + 17 + D16", 110: "T20 + 10 + D20", 111: "T19 + 14 + D20", 112: "T20 + 20 + D16",
+            113: "T19 + 16 + D20", 114: "T20 + 14 + D20", 115: "T20 + 15 + D20", 116: "T20 + 16 + D20",
+            117: "T20 + 17 + D20", 118: "T20 + 18 + D20", 119: "T19 + 12 + Bull", 120: "T20 + 20 + D20",
+            121: "T20 + 11 + Bull",
 
-            // 51-60
-            51: "11 → D20", 52: "12 → D20", 53: "13 → D20", 54: "14 → D20",
-            55: "15 → D20", 56: "16 → D20", 57: "17 → D20", 58: "18 → D20",
-            59: "19 → D20", 60: "20 → D20",
+            // 3 DART FINISHES - Higher scores (122-170)
+            122: "T18 + 18 + Bull", 123: "T19 + 16 + Bull", 124: "T20 + 14 + Bull", 125: "25 + T20 + D20",
+            126: "T19 + 19 + Bull", 127: "T20 + 17 + Bull", 128: "18 + T20 + Bull", 129: "19 + T20 + Bull",
+            130: "T20 + 20 + Bull", 131: "T20 + T13 + D16", 132: "25 + T19 + Bull", 133: "T20 + T19 + D8",
+            134: "T20 + T14 + D16", 135: "25 + T20 + Bull", 136: "T20 + T20 + D8", 137: "T20 + T19 + D10",
+            138: "T20 + T18 + D12", 139: "T19 + T14 + D20", 140: "T20 + T20 + D10", 141: "T20 + T19 + D12",
+            142: "T20 + T14 + D20", 143: "T20 + T17 + D16", 144: "T20 + T20 + D12", 145: "T20 + T15 + D20",
+            146: "T20 + T18 + D16", 147: "T20 + T17 + D18", 148: "T20 + T20 + D14", 149: "T20 + T19 + D16",
+            150: "T20 + T18 + D18", 151: "T20 + T17 + D20", 152: "T20 + T20 + D16", 153: "T20 + T19 + D18",
+            154: "T20 + T18 + D20", 155: "T20 + T19 + D19", 156: "T20 + T20 + D18", 157: "T20 + T19 + D20",
+            158: "T20 + T20 + D19", 160: "T20 + T20 + D20", 161: "T20 + T17 + Bull", 164: "T20 + T18 + Bull",
+            167: "T20 + T19 + Bull", 170: "T20 + T20 + Bull",
 
-            // 61-70
-            61: "25 → D18", 62: "10 → D26 or 14 → BULLSEYE!", 63: "13 → D25", 64: "16 → D24 or T16 → D8",
-            65: "25 → D20 or 19 → D23", 66: "10 → D28 or 16 → D25", 67: "17 → D25 or 9 → D29",
-            68: "18 → D25 or 16 → D26", 69: "19 → D25", 70: "18 → D26 or 10 → D30",
+            // Direct doubles (2-40)
+            2: "D1", 4: "D2", 6: "D3", 8: "D4", 10: "D5", 12: "D6", 14: "D7", 16: "D8", 18: "D9", 20: "D10",
+            22: "D11", 24: "D12", 26: "D13", 28: "D14", 30: "D15", 32: "D16", 34: "D17", 36: "D18", 38: "D19", 40: "D20",
 
-            // 71-80
-            71: "13 → D29 or 11 → D30", 72: "12 → D30 or 16 → D28", 73: "13 → D30 or 17 → D28",
-            74: "14 → D30 or T14 → D16", 75: "17 → D29 or 25 → BULLSEYE!", 76: "16 → D30 or T20 → D8",
-            77: "15 → D31 or 19 → D29", 78: "18 → D30 or T18 → D12", 79: "13 → D33 or 19 → D30",
-            80: "20 → D30 or T20 → D10",
-
-            // 81-90
-            81: "19 → D31 or T15 → D18", 82: "14 → D34 or BULLSEYE! → D16", 83: "17 → D33 or T17 → D16",
-            84: "20 → D32 or T20 → D12", 85: "15 → D35 or T15 → D20", 86: "18 → D34 or T18 → D16",
-            87: "17 → D35 or T17 → D18", 88: "16 → D36 or T20 → D14", 89: "19 → D35 or T19 → D16",
-            90: "18 → D36 or T20 → D15",
-
-            // 91-100
-            91: "17 → D37 or T17 → D20", 92: "20 → D36 or T20 → D16", 93: "19 → D37 or T19 → D18",
-            94: "18 → D38 or T18 → D20", 95: "19 → D38 or T19 → D19", 96: "20 → D38 or T20 → D18",
-            97: "19 → D39 or T19 → D20", 98: "18 → D40 or T20 → D19", 99: "19 → D40 or T19 → 10 → D16",
-            100: "20 → D40 or T20 → D20",
-
-            // 101-110
-            101: "T17 → BULLSEYE! or 17 → D42", 102: "T20 → D21", 103: "T19 → D23 or 19 → D42",
-            104: "T18 → BULLSEYE! or T20 → D22", 105: "T19 → D24 or T20 → 5 → D20", 106: "T20 → D23",
-            107: "T19 → BULLSEYE! or T19 → 10 → D20", 108: "T20 → D24", 109: "T20 → 9 → D20 or T19 → D26",
-            110: "T20 → BULLSEYE! or T20 → 10 → D20",
-
-            // 111-120
-            111: "T19 → 14 → D20 or T20 → 11 → D20", 112: "T20 → D26", 113: "T19 → 16 → D20 or T20 → 13 → D20",
-            114: "T20 → 14 → D20 or T19 → 17 → D20", 115: "T19 → 18 → D20 or T20 → 15 → D20", 116: "T20 → 16 → D20",
-            117: "T19 → 20 → D20 or T20 → 17 → D20", 118: "T20 → 18 → D20", 119: "T19 → 12 → BULLSEYE! or T20 → 19 → D20",
-            120: "T20 → 20 → D20",
-
-            // 121-130
-            121: "T17 → T18 → D5 or T20 → 11 → D25", 122: "T18 → 18 → D20 or T20 → 12 → D25", 123: "T19 → 16 → D25",
-            124: "T20 → 14 → D25 or T20 → 14 → BULLSEYE!", 125: "T18 → 19 → BULLSEYE! or 25 → T20 → D20", 126: "T19 → 19 → D25",
-            127: "T20 → 17 → D25 or T17 → 16 → D20", 128: "T18 → 14 → D20 or T20 → 18 → D25", 129: "T19 → 12 → D30 or T20 → 19 → D25",
-            130: "T20 → 20 → D25 or T20 → BULLSEYE! → D10",
-
-            // 131-140
-            131: "T20 → 11 → D30 or T19 → 14 → D30", 132: "BULLSEYE! → BULLSEYE! → D16", 133: "T20 → 13 → D30",
-            134: "T20 → 14 → D30", 135: "BULLSEYE! → T17 → D20 or T20 → 15 → D30", 136: "T20 → 16 → D30",
-            137: "T20 → 17 → D30", 138: "T20 → 18 → D30", 139: "T20 → 19 → D30", 140: "T20 → 20 → D30",
-
-            // 141-150
-            141: "T20 → T19 → D12", 142: "T20 → T14 → D20 or T20 → 12 → BULLSEYE! → D8", 143: "T20 → T17 → D16",
-            144: "T20 → T20 → D12", 145: "T20 → T19 → D14", 146: "T20 → T18 → D16", 147: "T20 → T17 → D18",
-            148: "T20 → T20 → D14", 149: "T20 → T19 → D16", 150: "T20 → T18 → D18",
-
-            // 151-160
-            151: "T20 → T17 → D20", 152: "T20 → T20 → D16", 153: "T20 → T19 → D18", 154: "T20 → T18 → D20",
-            155: "T20 → T19 → D19", 156: "T20 → T20 → D18", 157: "T20 → T19 → D20", 158: "T20 → T20 → D19",
-            159: "T20 → T19 → 12 → D15", 160: "T20 → T20 → D20",
-
-            // 161-170
-            161: "T20 → T17 → BULLSEYE!", 162: "T20 → T20 → 12 → D15", 163: "T20 → T19 → 16 → D15",
-            164: "T20 → T18 → BULLSEYE! or T19 → T19 → D20", 165: "T20 → T19 → 18 → D15", 166: "T20 → T20 → 16 → D15",
-            167: "T20 → T19 → BULLSEYE!", 168: "T20 → T20 → 18 → D15", 169: "T20 → T19 → 12 → D20",
-            170: "T20 → T20 → BULLSEYE!"
+            // Odd numbers requiring setup (1-40)
+            1: "Cannot finish", 3: "1 + D1", 5: "1 + D2", 7: "3 + D2", 9: "1 + D4", 11: "3 + D4",
+            13: "5 + D4", 15: "7 + D4", 17: "1 + D8", 19: "3 + D8", 21: "5 + D8", 23: "7 + D8",
+            25: "9 + D8", 27: "11 + D8", 29: "13 + D8", 31: "15 + D8", 33: "1 + D16", 35: "3 + D16",
+            37: "5 + D16", 39: "7 + D16"
         ]
 
         return checkouts[score]
