@@ -20,16 +20,19 @@ open DartsCounter.xcodeproj
 
 ## Project Overview
 
-**App**: Darts Counter - a native macOS darts scoring application  
-**Version**: 0.1.0  
-**Platform**: macOS 14.0+ (Sonoma)  
-**Framework**: SwiftUI  
-**Language**: Swift 5.9+  
+**App**: Darts Counter - a native macOS darts scoring application
+**Version**: 1.0.2
+**Platform**: macOS 14.0+ (Sonoma)
+**Framework**: SwiftUI
+**Language**: Swift 5.9+
 
 ### What It Does
 - 301 and 501 dart games
 - Two-player local multiplayer OR single player vs bot
 - Bot has 12 difficulty levels (Level N = ~N×10 average per visit)
+- Visual dartboard showing bot dart hits with animations
+- Sound effects for 180 announcements (MP3 playback)
+- Checkout suggestions based on Winmau checkout table
 - Tracks statistics: average, darts thrown, best visit
 - Enforces standard rules: double-out required, bust detection
 
@@ -42,16 +45,20 @@ DartsCounter/
 ├── DartsCounter/
 │   ├── DartsCounterApp.swift        # @main entry point
 │   ├── Models/
-│   │   └── GameModels.swift         # GameMode, Player, PlayerType, BotDifficulty, DartScore
+│   │   └── GameModels.swift         # GameMode, Player, PlayerType, BotDifficulty, DartScore, DartHit
 │   ├── Managers/
-│   │   └── GameManager.swift        # GameState, all game logic, scoring
+│   │   ├── GameManager.swift        # GameState, all game logic, scoring
+│   │   └── SoundManager.swift       # Audio playback with AVAudioPlayer
+│   ├── Sounds/
+│   │   └── 180.mp3                  # 180 announcement audio
 │   └── Views/
 │       ├── ContentView.swift        # Root view - routes based on GameState
 │       ├── MainMenuView.swift       # Landing screen with PLAY button
 │       ├── ModeSelectionView.swift  # Choose 301 or 501
 │       ├── PlayerSetupView.swift    # Player names, bot toggle, bot level
 │       ├── GameView.swift           # Main gameplay UI (largest file)
-│       └── GameOverView.swift       # Winner screen, stats, play again
+│       ├── GameOverView.swift       # Winner screen, stats, play again
+│       └── DartboardView.swift      # Visual dartboard with dart hit display
 ├── CLAUDE.md                        # This file
 ├── CHANGELOG.md                     # Version history
 └── README.md                        # User documentation
@@ -62,11 +69,14 @@ DartsCounter/
 | Type | File | Role |
 |------|------|------|
 | `GameManager` | Managers/GameManager.swift | **Central state manager** - injected via `@EnvironmentObject` |
+| `SoundManager` | Managers/SoundManager.swift | Audio playback manager - MP3 sound effects |
 | `GameState` | Managers/GameManager.swift | Enum: `.menu`, `.modeSelection`, `.playerSetup`, `.playing`, `.gameOver` |
 | `GameMode` | Models/GameModels.swift | Enum: `.threeOhOne`, `.fiveOhOne` |
 | `Player` | Models/GameModels.swift | ObservableObject - score, visits, dartsThrown, average |
 | `PlayerType` | Models/GameModels.swift | Enum: `.human`, `.bot(level: Int)` |
-| `BotDifficulty` | Models/GameModels.swift | Bot AI - generates realistic scores using normal distribution |
+| `BotDifficulty` | Models/GameModels.swift | Bot AI - generates valid dart scores with realistic distribution |
+| `DartHit` | Models/GameModels.swift | Visualization model - score, segment, multiplier for dartboard display |
+| `DartboardView` | Views/DartboardView.swift | Custom SwiftUI view - renders dartboard and dart markers |
 
 ### State Flow
 ```
@@ -105,12 +115,15 @@ Types:
 - `docs:` documentation only
 - `style:` formatting, no code change
 
-## Current State (v0.1.0)
+## Current State (v1.0.2)
 
 ### Working Features ✅
 - 301 and 501 game modes
 - Two-player local multiplayer
 - Bot opponent (12 levels, ~10-120 average)
+- **Visual dartboard showing bot dart hits with 1-second animation**
+- **Sound effects (180 announcement via MP3 playback)**
+- **Checkout suggestions based on Winmau checkout table (2-170)**
 - Singles/Doubles/Triples scoring tabs
 - Real-time statistics display
 - Visit history per player
@@ -123,26 +136,28 @@ Types:
 None currently tracked
 
 ### Not Yet Implemented
-- Checkout suggestions
-- Sound effects
+- Additional sound effects (remaining scores, bust, game over)
 - Statistics persistence
 - Additional game modes (Cricket, Around the Clock)
+- Keyboard shortcuts for score input
 
 ## Roadmap
 
 ### Priority 1 - Next Up
-- [ ] Checkout suggestions for scores ≤170
+- [ ] Complete sound system (add remaining scores, bust, game over sounds)
+- [ ] Keyboard shortcuts for faster score entry
 - [ ] Improve bot checkout accuracy
 
 ### Priority 2 - Soon
-- [ ] Sound effects (dart throw, bust, checkout, 180)
 - [ ] Persist statistics with SwiftData or UserDefaults
+- [ ] Match play (best of X legs)
+- [ ] Practice mode with scoring targets
 
 ### Priority 3 - Later
 - [ ] Cricket game mode
 - [ ] Around the Clock mode
-- [ ] Visual dartboard input option
-- [ ] Match play (best of X legs)
+- [ ] Online multiplayer
+- [ ] Tournament bracket system
 
 ## Common Tasks
 
@@ -163,7 +178,16 @@ All bot logic is in `BotDifficulty` struct in `GameModels.swift`:
 - `averagePerVisit` - target score per 3 darts
 - `standardDeviation` - consistency (lower = more consistent)
 - `generateVisitScore()` - main scoring algorithm
+- `generateValidDartScore()` - ensures only valid dart scores (singles 1-20, doubles, triples, 25, 50)
+- `scoreToDartHit()` - converts scores to DartHit for visualization
 - `getCheckoutScore()` - checkout detection
+
+### Adding Sound Effects
+Sound system is in `SoundManager.swift`:
+- Place MP3 files in `DartsCounter/Sounds/` folder
+- Add files to Xcode project in Sounds group
+- Call `playSound(named: "filename")` to play audio
+- Supports automatic fallback search in multiple locations
 
 ## Session Log
 
@@ -172,3 +196,11 @@ All bot logic is in `BotDifficulty` struct in `GameModels.swift`:
 - All core features implemented
 - Git repo initialised, tagged v0.1.0
 - Pushed to GitHub
+
+### Session 2 (2025-01-05)
+- Added dartboard visualization with bot dart hit animations
+- Implemented sound system with MP3 playback (180 announcement)
+- Fixed critical scoring bug (double-counting visit totals)
+- Fixed bot generating invalid dart scores
+- Updated all checkout suggestions to match Winmau table
+- Tagged v1.0.2 and pushed to both branches

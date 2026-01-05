@@ -2,6 +2,8 @@
 
 A native macOS darts scoring application built with SwiftUI.
 
+**Version**: 1.0.2
+
 ## Features
 
 - **Game Modes**: 301 and 501
@@ -12,8 +14,10 @@ A native macOS darts scoring application built with SwiftUI.
   - Level 1: ~10 average
   - Level 6: ~60 average (casual player)
   - Level 12: ~120 average (professional)
+  - **Visual dartboard shows bot dart hits with smooth animations**
+- **Sound Effects**: 180 announcement with realistic audio (more sounds coming soon!)
 - **Keyboard Input**: Fast score entry with intelligent auto-submit
-- **Checkout Suggestions**: Recommended outs for scores 2-170
+- **Checkout Suggestions**: Professional outs based on Winmau checkout table (2-170)
 - **Scoring Interface**:
   - Singles, Doubles, and Triples tabs
   - Quick score buttons
@@ -52,16 +56,20 @@ A native macOS darts scoring application built with SwiftUI.
 DartsCounter/
 ├── DartsCounterApp.swift      # App entry point
 ├── Models/
-│   └── GameModels.swift       # Game mode, Player, Bot logic
+│   └── GameModels.swift       # Game mode, Player, Bot logic, DartHit
 ├── Managers/
-│   └── GameManager.swift      # Game state and scoring logic
+│   ├── GameManager.swift      # Game state and scoring logic
+│   └── SoundManager.swift     # Audio playback manager
+├── Sounds/
+│   └── 180.mp3                # 180 announcement audio
 ├── Views/
 │   ├── ContentView.swift      # Main navigation container
 │   ├── MainMenuView.swift     # Home screen
 │   ├── ModeSelectionView.swift # 301/501 selection
 │   ├── PlayerSetupView.swift  # Player names & bot settings
 │   ├── GameView.swift         # Main gameplay screen
-│   └── GameOverView.swift     # Winner display & stats
+│   ├── GameOverView.swift     # Winner display & stats
+│   └── DartboardView.swift    # Visual dartboard with animations
 └── Assets.xcassets/           # App icons and colors
 ```
 
@@ -97,13 +105,20 @@ DartsCounter/
 - Bust rule: Score reverts if you go below 0 or hit exactly 1
 - Standard scoring: Singles, doubles (2x), triples (3x), bullseye (50)
 
-## Future Enhancements (ideas)
+## What's New in v1.0.2
 
-- [ ] Around the Clock mode
-- [ ] Sound effects
+- ✨ **Visual Dartboard**: Watch bot darts hit the board with smooth 1-second animations
+- 🔊 **Sound Effects**: 180 announcement with realistic audio playback
+- 🎯 **Professional Checkouts**: All suggestions now match the official Winmau checkout table
+- 🐛 **Bug Fixes**: Fixed critical scoring bugs and invalid dart generation
+
+## Future Enhancements
+
+- [ ] Complete sound system (remaining scores, bust, game over)
+- [ ] Keyboard shortcuts for faster input
 - [ ] Game history/statistics persistence
-- [ ] Custom checkout suggestions
-- [ ] Multiplayer over network
+- [ ] Cricket mode
+- [ ] Match play (best of X legs)
 
 ## License
 
